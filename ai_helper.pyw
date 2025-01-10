@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import tiktoken
 import json
 import markdown
 import openai
@@ -15,21 +14,21 @@ import traceback
 from datetime import datetime
 from dotenv import load_dotenv
 from platformdirs import user_config_dir
+import tiktoken
 
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtGui import QAction, QFont, QIcon
 from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage
 from PyQt6.QtWidgets import QApplication, QListWidget, QAbstractItemView, QSizePolicy, QMenu, QMessageBox, QInputDialog, QLineEdit, QDialog, QPlainTextEdit, QVBoxLayout, QWidget
-from PyQt6.QtGui import QAction
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
 
 
 from ai_helper_gui import Ui_MainWidget
 
 # python -m venv .python-env/generativeAI
 # source ~/.python-env/generativeAI/bin/activate 
-# pip install markdown openai tiktoken pyqt6 PyQt6-WebEngine python-dotenv platformdirs
+# pip install markdown openai tiktoken pyqt6 PyQt6-WebEngine python-dotenv platformdirs pyinstaller
+# pyinstaller --add-data --noconsole --onefile ai_helper.pyw
 
 class ChatSession:
     def __init__(self):
@@ -97,8 +96,8 @@ class AI_Helper(QtWidgets.QWidget):
         super(AI_Helper, self).__init__(parent)        
         self.mainWidget = Ui_MainWidget()
         self.mainWidget.setupUi(self)
-        self.resize(1280, 1024)
-
+        self.setGeometry(100, 100, 1280, 1024)
+        
         self.bool_debug_mode = False
 
         self.initialize_variables()        
@@ -773,13 +772,30 @@ class AI_Helper(QtWidgets.QWidget):
             QtWidgets.QMessageBox.critical(self,"OpenAI API Error", f"An error occurred while processing your request:\n{error_type}: {error_message}"   )
 
             return False
+        
+        except openai.RateLimitError as e:     
+            error_type = type(e).__name__
+            error_message = getattr(e, 'message', str(e))
+            self.log_message("ERROR", f"{error_type}: {error_message}")
+                    
+            tb_info = traceback.format_exc()
+            self.log_message("DEBUG", f"Full traceback:\n{tb_info}")
+
+            QtWidgets.QMessageBox.critical(self,"OpenAI API Error", f"An error occurred while processing your request:\n{error_type}: {error_message}"   )
+
+            return False
 
         except Exception as e:
-            print("[Error] An error has occurred.")
-            print(str(type(e).__name__) + ": " + str(e))
-            print(e.with_traceback)
-            print(traceback.format_exc())            
-            exit(1)
+            error_type = type(e).__name__
+            error_message = getattr(e, 'message', str(e))
+            self.log_message("ERROR", f"{error_type}: {error_message}")
+                    
+            tb_info = traceback.format_exc()
+            self.log_message("DEBUG", f"Full traceback:\n{tb_info}")
+
+            QtWidgets.QMessageBox.critical(self,"Error", f"An error occurred while processing your request:\n{error_type}: {error_message}"   )
+
+            return False
 
 
     def markdown_to_html(self, text):
@@ -814,7 +830,11 @@ class AI_Helper(QtWidgets.QWidget):
 
 if __name__ == "__main__":
 
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    icon_path = os.path.join(current_dir, 'three-dots.png')
+
     app = QtWidgets.QApplication(sys.argv)
+    app.setWindowIcon(QIcon(icon_path))
     AI_Helper_app = AI_Helper()
     AI_Helper_app.show()
     sys.exit(app.exec())
